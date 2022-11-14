@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -67,6 +69,14 @@ public class NumberManager : MonoBehaviour
     int randomNumber1 = 0;
     int randomNumber2 = 0;
     int temp = 0;
+    int[] inputNumbers = {0, 0, 0, 0,   0, 0, 0, 0,   0, 0};
+    int[] candidateNumber = {0, 0, 0, 0,   0, 0, 0, 0,   0, 0};
+    int[] countNumbers = {0, 0, 0, 0,   0, 0, 0, 0,   0, 0};
+    int selectedCount = 0;
+    int inputCount = 0;
+    int selectedSumNumber = 0;
+    int emptyNumber = 0;
+    bool clear = false;
 
     // Start is called before the first frame update
     void Start() {
@@ -77,6 +87,8 @@ public class NumberManager : MonoBehaviour
         resetnumbers();
         resetNumberInputField();
         resetSubmitButton();
+
+        solvePuzzle();
     }
 
     // Update is called once per frame
@@ -184,6 +196,7 @@ public class NumberManager : MonoBehaviour
                 setFlag = 1;
 
                 buttonTexts[i].text = inputNumber.ToString();
+                inputNumbers[i] = inputNumber;
                 descriptionText.text = "Correct answer";
 
                 resetNumberButton();
@@ -245,5 +258,167 @@ public class NumberManager : MonoBehaviour
 
         moveNumber = moveNumber + 1;
         moveText.text = "Move : " + moveNumber.ToString();
+    }
+
+    public async void solvePuzzle() {
+        // Debug.Log(clearCheck());
+        solveMaxNumber();
+        await Task.Delay(500 * (numbers.Length + 1));
+        solveMinNumber();
+        await Task.Delay(500 * (numbers.Length + 1));
+        while (!clearCheck()) {
+            solveSumNumber();
+            await Task.Delay(500 * (numbers.Length + 1));
+        }
+    }
+
+    public void selectNumberButton(int i) {
+        if (selectButtons[i] == 1) {
+            clickNumberButton(i);
+            clickNumberButton(i);
+        } else {
+            clickNumberButton(i);
+        }
+    }
+
+    public void setCandidate() {
+        for (int i = 0; i < numbers.Length; i++) {
+            if (countNumbers[i] == 1) {
+                for (int j = 0; j < candidateNumber.Length; j++) {
+                    if (candidateNumber[j] == i + 1) {
+                        clickNumberButton(j);
+                        numberInputField.text = candidateNumber[j].ToString();
+                        setNumber();
+                    }
+                }
+            }
+        }
+    }
+
+    public void resetCandidate() {
+        for (int i = 0; i < candidateNumber.Length; i++) {
+            candidateNumber[i] = 0;
+            countNumbers[i] = 0;
+        }
+    }
+
+    public async void solveMaxNumber() {
+        resetCandidate();
+        clickModeButton(0);
+
+        for (int i = 0; i < numbers.Length; i++) {
+            selectNumberButton(i);
+            okButton();
+            await Task.Delay(500);
+
+            if (countNumbers[maxNumber - 1] == 0) {
+                for (int j = 0; j < numbers.Length; j++) {
+                    if ((relasionshipNumbers[i, j] == 1 || i == j) && (candidateNumber[j] == 0 || candidateNumber[j] > maxNumber)) {
+                        if (candidateNumber[j] != 0) {
+                            countNumbers[candidateNumber[j] - 1]--;
+                        }
+                        candidateNumber[j] = maxNumber;
+                        countNumbers[maxNumber - 1]++;
+                    }
+                }
+            } else {
+                for (int j = 0; j < numbers.Length; j++) {
+                    if (candidateNumber[j] == maxNumber && !(relasionshipNumbers[i, j] == 1 || i == j)) {
+                        candidateNumber[j] = 0;
+                        countNumbers[maxNumber - 1]--;
+                    }
+                }
+            }
+        }
+
+        clickModeButton(0);
+        setCandidate();
+    }
+
+    public async void solveMinNumber() {
+        resetCandidate();
+        clickModeButton(1);
+
+        for (int i = 0; i < numbers.Length; i++) {
+            selectNumberButton(i);
+            okButton();
+            await Task.Delay(500);
+
+            if (countNumbers[minNumber - 1] == 0) {
+                for (int j = 0; j < numbers.Length; j++) {
+                    if ((relasionshipNumbers[i, j] == 1 || i == j) && (candidateNumber[j] == 0 || candidateNumber[j] < minNumber)) {
+                        if (candidateNumber[j] != 0) {
+                            countNumbers[candidateNumber[j] - 1]--;
+                        }
+                        candidateNumber[j] = minNumber;
+                        countNumbers[minNumber - 1]++;
+                    }
+                }
+            } else {
+                for (int j = 0; j < numbers.Length; j++) {
+                    if (candidateNumber[j] == minNumber && !(relasionshipNumbers[i, j] == 1 || i == j)) {
+                        candidateNumber[j] = 0;
+                        countNumbers[minNumber - 1]--;
+                    }
+                }
+            }
+        }
+
+        clickModeButton(1);
+        setCandidate();
+    }
+
+    public async void solveSumNumber() {
+        // sum mode on
+        clickModeButton(2);
+
+        for (int i = 0; i < numbers.Length; i++) {
+            selectNumberButton(i);
+            okButton();
+            await Task.Delay(500);
+
+            selectedCount = 0;
+            inputCount = 0;
+            selectedSumNumber = 0;
+
+            for (int j = 0; j < numbers.Length; j++) {
+                if (relasionshipNumbers[i, j] == 1 || i == j) {
+                    selectedCount++;
+                    selectedSumNumber = selectedSumNumber + inputNumbers[j];
+
+                    if (inputNumbers[j] != 0) {
+                        inputCount++;
+                    } else {
+                        emptyNumber = j;
+                    }
+                }
+            }
+
+            if (selectedCount - inputCount == 1) {
+                inputNumbers[emptyNumber] = sumNumber - selectedSumNumber;
+                // sum mode off
+                clickModeButton(2);
+                selectNumberButton(emptyNumber);
+                numberInputField.text = inputNumbers[emptyNumber].ToString();
+                setNumber();
+                // sum mode on
+                clickModeButton(2);
+            }
+        }
+
+        // sum mode off
+        clickModeButton(2);
+    }
+
+    public bool clearCheck() {
+        clear = true;
+
+        for (int i = 0; i < numbers.Length; i++) {
+            if (numbers[i] != inputNumbers[i]) {
+                clear = false;
+            }
+        }
+
+        return clear;
     }
 }
